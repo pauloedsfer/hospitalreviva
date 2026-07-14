@@ -219,17 +219,49 @@
   ::-webkit-scrollbar{width:8px;height:8px;}
   ::-webkit-scrollbar-thumb{background:#D5CFC0;border-radius:4px;}
 
+  .menu-btn{
+    display:none;align-items:center;justify-content:center;
+    width:38px;height:38px;border-radius:8px;border:1px solid var(--line);
+    background:var(--surface);cursor:pointer;flex-shrink:0;
+  }
+  .menu-btn span, .menu-btn::before, .menu-btn::after{
+    content:"";display:block;width:16px;height:2px;background:var(--ink);border-radius:2px;
+  }
+  .menu-btn{flex-direction:column;gap:3px;}
+  .backdrop{
+    display:none;position:fixed;inset:0;background:rgba(20,28,27,.45);z-index:40;
+  }
+  .backdrop.open{display:block;}
+  .sidebar-close{display:none;}
+
   @media (max-width:820px){
-    .sidebar{width:72px;}
-    .brand-sub, .nav-item span.label, .nav-group-label, .sidebar-foot{display:none;}
-    .main{padding:22px 16px;}
+    .app{display:block;}
+    .sidebar{
+      position:fixed;top:0;left:0;bottom:0;width:264px;z-index:50;
+      transform:translateX(-100%);transition:transform .22s ease;
+      box-shadow:0 0 30px rgba(0,0,0,.25);
+    }
+    .sidebar.open{transform:translateX(0);}
+    .sidebar-close{
+      display:block;position:absolute;top:18px;right:16px;
+      width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.1);
+      color:#EFEAE0;border:none;font-size:16px;cursor:pointer;line-height:1;
+    }
+    .menu-btn{display:flex;}
+    .main{padding:18px 16px 50px;}
+    .topbar{align-items:center;}
+    .topbar-left{display:flex;align-items:center;gap:12px;min-width:0;}
+    .page-title{font-size:19px;}
+    .page-title.long{font-size:16.5px;}
   }
 </style>
 </head>
 <body>
 <div class="app">
 
-  <aside class="sidebar">
+  <div class="backdrop" id="backdrop"></div>
+  <aside class="sidebar" id="sidebar">
+    <button class="sidebar-close" id="sidebarClose" aria-label="Fechar menu">✕</button>
     <div class="brand">
       <div class="brand-logo">
         <!-- Logo embutida em base64 para o protótipo já abrir pronta. Ao publicar no GitHub, troque o src por: https://raw.githubusercontent.com/SEU_USUARIO/SEU_REPO/main/logo-reviva.png -->
@@ -250,9 +282,12 @@
 
   <main class="main">
     <div class="topbar">
-      <div>
-        <div class="page-title" id="pageTitle">Painel</div>
-        <div class="page-sub" id="pageSub">Visão geral da farmácia e da ocupação</div>
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn" aria-label="Abrir menu"><span></span></button>
+        <div>
+          <div class="page-title" id="pageTitle">Painel</div>
+          <div class="page-sub" id="pageSub">Visão geral da farmácia e da ocupação</div>
+        </div>
       </div>
       <span class="badge-proto">Protótipo — dados fictícios</span>
     </div>
@@ -686,6 +721,17 @@ renderNav();
 mount();
 switchView('dashboard');
 document.querySelector('.nav-item[data-view="dashboard"]').classList.add('active');
+
+/* ---------------- mobile drawer ---------------- */
+const sidebarEl = $('#sidebar');
+const backdropEl = $('#backdrop');
+function openDrawer(){ sidebarEl.classList.add('open'); backdropEl.classList.add('open'); }
+function closeDrawer(){ sidebarEl.classList.remove('open'); backdropEl.classList.remove('open'); }
+$('#menuBtn').addEventListener('click', openDrawer);
+$('#sidebarClose').addEventListener('click', closeDrawer);
+backdropEl.addEventListener('click', closeDrawer);
+sidebarEl.querySelectorAll('.nav-item').forEach(el=> el.addEventListener('click', closeDrawer));
+
 </script>
 </body>
 </html>
