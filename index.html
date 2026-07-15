@@ -66,7 +66,7 @@
     line-height:1.2;
   }
   .brand-sub{font-size:10.5px;color:#B9C9C4;margin-top:3px;letter-spacing:.3px;text-transform:uppercase;line-height:1.3;}
-  nav{flex:1;padding:6px 12px;}
+  nav{flex:1;padding:6px 12px;overflow-y:auto;}
   .nav-group-label{
     font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:#7FA39B;
     padding:16px 12px 6px;font-weight:600;
@@ -145,6 +145,7 @@
     padding:3px 9px;border-radius:100px;background:var(--success-tint);color:var(--success);
   }
   .pill.low{background:var(--warn-tint);color:var(--warn);}
+  .pill.warn{background:var(--accent-tint);color:var(--accent);}
 
   .btn{
     font-family:'Public Sans',sans-serif;font-size:13px;font-weight:600;
@@ -311,8 +312,16 @@ const NAV = [
     { id: "dose", label: "Dose Unitária — hoje", icon: "●" },
   ]},
   { group: "Farmácia", items: [
-    { id: "estoque", label: "Substâncias & Estoque", icon: "●" },
+    { id: "estoque", label: "Substâncias, Lotes & Validade", icon: "●" },
     { id: "prescricoes", label: "Prescrições ativas", icon: "●" },
+  ]},
+  { group: "Suprimentos", items: [
+    { id: "notasfiscais", label: "Notas Fiscais", icon: "●" },
+    { id: "doacoes", label: "Doações", icon: "●" },
+    { id: "previsao", label: "Previsão de Compras", icon: "●" },
+  ]},
+  { group: "Financeiro", items: [
+    { id: "financeiro", label: "Custos & Indicadores", icon: "●" },
   ]},
   { group: "Compliance", items: [
     { id: "escrituracao", label: "Livro de Registro", icon: "●" },
@@ -324,6 +333,8 @@ const NAV = [
 ];
 
 const CAPACIDADE_TOTAL = 35;
+const HOJE = "2026-07-14";
+const DIARIA_INTERNACAO = 180; // valor ilustrativo — hospedagem/estrutura, não inclui medicamentos
 
 const patients = [
   { id: "P01", nome: "J. A. S.", leito: "Q-01", admissao: "2026-06-30", prescritor: "Dr. R. Almeida — CRM-GO 11234" },
@@ -333,28 +344,51 @@ const patients = [
 ];
 
 const substances = [
-  { id: "S01", nome: "Diazepam 10mg comp.", lista: "B1", unidade: "comp.", estoqueInicial: 60 },
-  { id: "S02", nome: "Clonazepam 2mg comp.", lista: "B1", unidade: "comp.", estoqueInicial: 60 },
-  { id: "S03", nome: "Haloperidol 5mg comp.", lista: "C1", unidade: "comp.", estoqueInicial: 40 },
-  { id: "S04", nome: "Prometazina 25mg comp.", lista: "C1", unidade: "comp.", estoqueInicial: 30 },
-  { id: "S05", nome: "Naltrexona 50mg comp.", lista: "—", unidade: "comp.", estoqueInicial: 30 },
-  { id: "S06", nome: "Dissulfiram 250mg comp.", lista: "—", unidade: "comp.", estoqueInicial: 30 },
+  { id: "S01", nome: "Diazepam 10mg comp.", lista: "B1", unidade: "comp." },
+  { id: "S02", nome: "Clonazepam 2mg comp.", lista: "B1", unidade: "comp." },
+  { id: "S03", nome: "Haloperidol 5mg comp.", lista: "C1", unidade: "comp." },
+  { id: "S04", nome: "Prometazina 25mg comp.", lista: "C1", unidade: "comp." },
+  { id: "S05", nome: "Naltrexona 50mg comp.", lista: "—", unidade: "comp." },
+  { id: "S06", nome: "Dissulfiram 250mg comp.", lista: "—", unidade: "comp." },
 ];
 
-// movimentações: entrada (compra) e saída (dispensação por paciente)
-const movements = [
-  { id:"M001", data:"2026-07-10", tipo:"entrada", subId:"S01", qtd:60, ref:"NF 4482 — Distrib. XYZ", paciente:null },
-  { id:"M002", data:"2026-07-10", tipo:"entrada", subId:"S02", qtd:60, ref:"NF 4482 — Distrib. XYZ", paciente:null },
-  { id:"M003", data:"2026-07-10", tipo:"entrada", subId:"S03", qtd:40, ref:"NF 4482 — Distrib. XYZ", paciente:null },
-  { id:"M004", data:"2026-07-10", tipo:"entrada", subId:"S04", qtd:30, ref:"NF 4482 — Distrib. XYZ", paciente:null },
-  { id:"M005", data:"2026-07-10", tipo:"entrada", subId:"S05", qtd:30, ref:"NF 4482 — Distrib. XYZ", paciente:null },
-  { id:"M006", data:"2026-07-10", tipo:"entrada", subId:"S06", qtd:30, ref:"NF 4482 — Distrib. XYZ", paciente:null },
-  { id:"M007", data:"2026-07-13", tipo:"saida", subId:"S01", qtd:1, ref:"Dose 22h", paciente:"P01" },
-  { id:"M008", data:"2026-07-13", tipo:"saida", subId:"S02", qtd:1, ref:"Dose 22h", paciente:"P02" },
-  { id:"M009", data:"2026-07-13", tipo:"saida", subId:"S03", qtd:1, ref:"Dose 08h", paciente:"P03" },
-  { id:"M010", data:"2026-07-14", tipo:"saida", subId:"S01", qtd:1, ref:"Dose 08h", paciente:"P01" },
-  { id:"M011", data:"2026-07-14", tipo:"saida", subId:"S05", qtd:1, ref:"Dose 08h", paciente:"P04" },
-  { id:"M012", data:"2026-07-14", tipo:"saida", subId:"S06", qtd:1, ref:"Dose 08h", paciente:"P03" },
+// Notas fiscais — cada item gera um lote em estoque
+const invoices = [
+  { id:"NF001", numero:"4482", data:"2026-07-10", fornecedor:"Distribuidora Farmacêutica XYZ Ltda", itens:[
+    { subId:"S01", qtd:60, lote:"DZP-2607", validade:"2028-01-31", custoUnit:0.38 },
+    { subId:"S02", qtd:60, lote:"CLZ-2607", validade:"2027-11-30", custoUnit:0.52 },
+    { subId:"S03", qtd:40, lote:"HAL-2607", validade:"2027-09-30", custoUnit:1.15 },
+    { subId:"S04", qtd:30, lote:"PRO-2607", validade:"2027-08-31", custoUnit:0.90 },
+    { subId:"S05", qtd:30, lote:"NTX-2607", validade:"2027-06-30", custoUnit:4.20 },
+    { subId:"S06", qtd:30, lote:"DSF-2607", validade:"2027-05-31", custoUnit:2.75 },
+  ]},
+  { id:"NF002", numero:"5104", data:"2026-07-13", fornecedor:"Farmoquímica Distribuidora Ltda", itens:[
+    { subId:"S01", qtd:60, lote:"DZP-2701", validade:"2027-08-15", custoUnit:0.40 },
+    { subId:"S03", qtd:20, lote:"HAL-2701", validade:"2026-09-30", custoUnit:1.20 },
+  ]},
+];
+
+// Doações — sem custo real ao hospital; valorEstimado é só para relatório de economia gerada
+const donations = [
+  { id:"DO001", data:"2026-07-12", doador:"Farmácia Solidária Anápolis", itens:[
+    { subId:"S05", qtd:15, lote:"NTX-DOA1", validade:"2027-02-28", valorEstimado:4.50 },
+    { subId:"S06", qtd:20, lote:"DSF-DOA1", validade:"2027-01-31", valorEstimado:2.80 },
+  ]},
+];
+
+// Dispensações (saídas) — base da Dose Unitária, já referenciando o lote consumido
+const dispensations = [
+  { data:"2026-07-11", subId:"S01", lote:"DZP-2607", qtd:1, ref:"Dose 22h", paciente:"P01" },
+  { data:"2026-07-11", subId:"S03", lote:"HAL-2607", qtd:1, ref:"Dose 08h", paciente:"P03" },
+  { data:"2026-07-12", subId:"S01", lote:"DZP-2607", qtd:1, ref:"Dose 22h", paciente:"P01" },
+  { data:"2026-07-12", subId:"S02", lote:"CLZ-2607", qtd:1, ref:"Dose 22h", paciente:"P02" },
+  { data:"2026-07-12", subId:"S04", lote:"PRO-2607", qtd:1, ref:"Dose 08h", paciente:"P03" },
+  { data:"2026-07-13", subId:"S01", lote:"DZP-2607", qtd:1, ref:"Dose 22h", paciente:"P01" },
+  { data:"2026-07-13", subId:"S02", lote:"CLZ-2607", qtd:1, ref:"Dose 22h", paciente:"P02" },
+  { data:"2026-07-13", subId:"S03", lote:"HAL-2607", qtd:1, ref:"Dose 08h", paciente:"P03" },
+  { data:"2026-07-14", subId:"S01", lote:"DZP-2607", qtd:1, ref:"Dose 08h", paciente:"P01" },
+  { data:"2026-07-14", subId:"S05", lote:"NTX-2607", qtd:1, ref:"Dose 08h", paciente:"P04" },
+  { data:"2026-07-14", subId:"S06", lote:"DSF-2607", qtd:1, ref:"Dose 08h", paciente:"P03" },
 ];
 
 const prescriptions = [
@@ -370,14 +404,119 @@ const $ = (sel, el=document) => el.querySelector(sel);
 const subById = id => substances.find(s => s.id === id);
 const patById = id => patients.find(p => p.id === id);
 const fmtDate = d => { const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; };
+const fmtBRL = v => (v||0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+const diffDias = (d1,d2) => Math.round((new Date(d2) - new Date(d1)) / 86400000);
 
+function allLotes(){
+  const list = [];
+  invoices.forEach(nf => nf.itens.forEach(it => list.push({
+    subId:it.subId, lote:it.lote, validade:it.validade, qtd:it.qtd, custoUnit:it.custoUnit,
+    origem:'compra', fonte:`NF ${nf.numero} — ${nf.fornecedor}`, data:nf.data,
+  })));
+  donations.forEach(d => d.itens.forEach(it => list.push({
+    subId:it.subId, lote:it.lote, validade:it.validade, qtd:it.qtd, custoUnit:0, valorEstimado:it.valorEstimado,
+    origem:'doacao', fonte:`Doação — ${d.doador}`, data:d.data,
+  })));
+  return list;
+}
+function saldoLote(lote){
+  const l = allLotes().find(x=>x.lote===lote);
+  if(!l) return 0;
+  const consumido = dispensations.filter(x=>x.lote===lote).reduce((a,x)=>a+x.qtd,0);
+  return l.qtd - consumido;
+}
 function saldo(subId){
-  const s = subById(subId);
-  let bal = s.estoqueInicial;
-  movements.filter(m=>m.subId===subId).forEach(m=>{
-    bal += m.tipo==='entrada' ? m.qtd : -m.qtd;
+  return allLotes().filter(l=>l.subId===subId).reduce((a,l)=>a+saldoLote(l.lote),0);
+}
+function custoMedio(subId){
+  const compras = allLotes().filter(l=>l.subId===subId && l.origem==='compra');
+  const totalQtd = compras.reduce((a,l)=>a+l.qtd,0);
+  const totalVal = compras.reduce((a,l)=>a+l.qtd*l.custoUnit,0);
+  return totalQtd ? totalVal/totalQtd : 0;
+}
+function validadeStatus(validade){
+  const dias = diffDias(HOJE, validade);
+  if(dias < 0) return { key:'vencido', label:'Vencido', dias };
+  if(dias <= 90) return { key:'critico', label:`Vence em ${dias}d`, dias };
+  return { key:'ok', label:'Regular', dias };
+}
+
+// Movimentações — geradas a partir de NF, doações e dispensações. Fonte única de verdade do estoque.
+const movements = (() => {
+  let seq = 0;
+  const nextId = () => 'M' + String(++seq).padStart(3,'0');
+  const list = [];
+  allLotes().forEach(l => list.push({
+    id: nextId(), data:l.data, tipo:'entrada', subId:l.subId, qtd:l.qtd, ref:l.fonte,
+    paciente:null, lote:l.lote, custoUnit:l.custoUnit, origem:l.origem,
+  }));
+  dispensations.forEach(d => {
+    const lote = allLotes().find(l => l.lote === d.lote);
+    list.push({
+      id: nextId(), data:d.data, tipo:'saida', subId:d.subId, qtd:d.qtd, ref:d.ref,
+      paciente:d.paciente, lote:d.lote, custoUnit: lote ? lote.custoUnit : custoMedio(d.subId),
+    });
   });
-  return bal;
+  list.sort((a,b)=> a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
+  list.forEach((m,i)=> m.id = 'M' + String(i+1).padStart(3,'0'));
+  return list;
+})();
+
+function diasInternado(p){ return diffDias(p.admissao, HOJE) + 1; }
+function custoMedicamentosPaciente(patId){
+  return movements.filter(m=>m.tipo==='saida' && m.paciente===patId).reduce((a,m)=>a+m.qtd*(m.custoUnit||0), 0);
+}
+function custoDiariasPaciente(p){ return diasInternado(p) * DIARIA_INTERNACAO; }
+function custoTotalPaciente(p){ return custoDiariasPaciente(p) + custoMedicamentosPaciente(p.id); }
+
+function periodoDispensacaoDias(){
+  if(!dispensations.length) return 1;
+  const datas = dispensations.map(d=>d.data).sort();
+  return Math.max(diffDias(datas[0], datas[datas.length-1]) + 1, 1);
+}
+function consumoMedioDiario(subId){
+  const total = dispensations.filter(d=>d.subId===subId).reduce((a,d)=>a+d.qtd, 0);
+  return total / periodoDispensacaoDias();
+}
+
+/* ---------------- mini gráficos SVG (sem dependências externas) ---------------- */
+const CHART_COLORS = { primary:'#2C5F5A', accent:'#A9784F', success:'#5C7F58', warn:'#8B4A3A', line:'#DEDACD', ink:'#1E2A28', muted:'#8A928F' };
+
+function svgBarChart(data, opts={}){
+  const width = opts.width || 600, height = opts.height || 190;
+  const pad = { top:26, right:14, bottom:30, left:14 };
+  const chartW = width - pad.left - pad.right, chartH = height - pad.top - pad.bottom;
+  const max = Math.max(...data.map(d=>d.value), 1);
+  const gap = chartW / data.length;
+  const barW = Math.min(gap * 0.5, 46);
+  let bars = '';
+  data.forEach((d,i)=>{
+    const h = max ? (d.value/max) * chartH : 0;
+    const x = pad.left + i*gap + (gap-barW)/2;
+    const y = pad.top + chartH - h;
+    bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(h,1).toFixed(1)}" rx="5" fill="${opts.color||CHART_COLORS.primary}"/>
+      <text x="${(x+barW/2).toFixed(1)}" y="${(y-8).toFixed(1)}" text-anchor="middle" font-size="11" font-family="IBM Plex Mono, monospace" fill="${CHART_COLORS.ink}">${opts.valueFmt ? opts.valueFmt(d.value) : d.value}</text>
+      <text x="${(x+barW/2).toFixed(1)}" y="${height-10}" text-anchor="middle" font-size="10.5" font-family="Public Sans, sans-serif" fill="${CHART_COLORS.muted}">${d.label}</text>`;
+  });
+  return `<svg viewBox="0 0 ${width} ${height}" style="width:100%;height:${height}px;display:block">${bars}</svg>`;
+}
+
+function svgHBarChart(data, opts={}){
+  const width = opts.width || 600;
+  const barH = opts.barHeight || 24, rowGap = opts.gap || 16;
+  const labelW = opts.labelWidth || 168;
+  const chartW = width - labelW - 74;
+  const max = Math.max(...data.map(d=>d.value), 1);
+  const height = data.length * (barH + rowGap);
+  let rows = '';
+  data.forEach((d,i)=>{
+    const y = i * (barH + rowGap);
+    const w = Math.max((d.value/max) * chartW, 2);
+    rows += `<text x="0" y="${y+barH/2+4}" font-size="12" font-family="Public Sans, sans-serif" fill="${CHART_COLORS.ink}">${d.label}</text>
+      <rect x="${labelW}" y="${y}" width="${w.toFixed(1)}" height="${barH}" rx="5" fill="${opts.color||CHART_COLORS.primary}"/>
+      <text x="${(labelW+w+8).toFixed(1)}" y="${y+barH/2+4}" font-size="11.5" font-family="IBM Plex Mono, monospace" fill="${CHART_COLORS.ink}">${opts.valueFmt ? opts.valueFmt(d.value) : d.value}</text>`;
+  });
+  return `<svg viewBox="0 0 ${width} ${height}" style="width:100%;height:${height}px;display:block">${rows}</svg>`;
 }
 
 function listaTagClass(lista){
@@ -407,8 +546,12 @@ const TITLES = {
   dashboard: ["Sistema de Controle de Estoque e Escrituração de Medicamentos da Farmácia Hospitalar", "Visão geral da farmácia e da ocupação"],
   pacientes: ["Pacientes", "Cadastro ativo — capacidade e ocupação atual"],
   dose: ["Dose Unitária — hoje", "Kits de dose por paciente e horário, prontos para dupla checagem"],
-  estoque: ["Substâncias & Estoque", "Saldo atual calculado a partir das movimentações"],
+  estoque: ["Substâncias, Lotes & Validade", "Saldo por lote calculado a partir das movimentações"],
   prescricoes: ["Prescrições ativas", "Base para a montagem diária da dose unitária"],
+  notasfiscais: ["Notas Fiscais", "Entradas por compra — cada item gera um lote em estoque"],
+  doacoes: ["Doações", "Entradas sem custo ao hospital — valor estimado para relatório de economia"],
+  previsao: ["Previsão de Compras", "Consumo médio, dias restantes e sugestão de reposição"],
+  financeiro: ["Custos & Indicadores", "Custo com medicamentos, diárias de internação e custo por paciente"],
   escrituracao: ["Livro de Registro", "Todas as movimentações — fonte única de verdade do estoque"],
   balanco: ["Balanço Mensal (BMPO)", "Estoque inicial, entradas, saídas e saldo final por substância"],
   roadmap: ["Evoluções futuras", "Possibilidades de expansão do sistema em próximas fases"],
@@ -471,50 +614,88 @@ function viewPacientes(){
       </div>
       <div class="panel-body">
         <table>
-          <thead><tr><th>Paciente</th><th>Leito</th><th>Admissão</th><th>Prescritor</th><th>Prescrições ativas</th></tr></thead>
+          <thead><tr><th>Paciente</th><th>Leito</th><th>Admissão</th><th>Dias internado</th><th>Prescritor</th><th>Custo até agora</th></tr></thead>
           <tbody>
             ${patients.map(p=>{
-              const n = prescriptions.filter(pr=>pr.paciente===p.id).length;
+              const dias = diasInternado(p);
+              const custo = custoTotalPaciente(p);
               return `<tr>
                 <td><b>${p.nome}</b></td>
                 <td class="mono">${p.leito}</td>
                 <td class="mono">${fmtDate(p.admissao)}</td>
+                <td class="num mono">${dias}</td>
                 <td style="color:var(--muted)">${p.prescritor}</td>
-                <td>${n}</td>
+                <td class="num mono"><b>${fmtBRL(custo)}</b></td>
               </tr>`;
             }).join('')}
           </tbody>
         </table>
       </div>
     </div>
-    <div class="note-box">Nomes exibidos de forma abreviada neste protótipo por padrão de privacidade — no sistema real, o cadastro completo (nome, CPF, prontuário) fica restrito ao acesso da farmácia e da equipe assistencial.</div>
+    <div class="note-box">Nomes exibidos de forma abreviada neste protótipo por padrão de privacidade — no sistema real, o cadastro completo (nome, CPF, prontuário) fica restrito ao acesso da farmácia e da equipe assistencial. Custo = diária de internação (${fmtBRL(DIARIA_INTERNACAO)}/dia, valor ilustrativo) + medicamentos efetivamente dispensados. Detalhamento em <b>Custos &amp; Indicadores</b>.</div>
   `;
 }
 
 function viewEstoque(){
+  const lotes = allLotes().sort((a,b)=> a.validade < b.validade ? -1 : 1);
   return `
     <div class="panel">
       <div class="panel-head">
-        <div><div class="panel-title">Substâncias controladas e estoque</div><div class="panel-title-sub">Saldo = estoque inicial + entradas − saídas (calculado, não digitado)</div></div>
+        <div><div class="panel-title">Substâncias controladas e estoque</div><div class="panel-title-sub">Saldo = soma dos lotes ativos (calculado, não digitado) · custo médio ponderado pelas compras</div></div>
         <button class="btn sm">+ Nova substância</button>
       </div>
       <div class="panel-body">
         <table>
-          <thead><tr><th>Substância</th><th>Lista</th><th>Unidade</th><th>Saldo atual</th><th>Situação</th></tr></thead>
+          <thead><tr><th>Substância</th><th>Lista</th><th>Saldo atual</th><th>Custo médio/un.</th><th>Valor em estoque</th><th>Situação</th></tr></thead>
           <tbody>
             ${substances.map(s=>{
               const bal = saldo(s.id);
+              const cm = custoMedio(s.id);
               const low = bal <= 10;
               return `<tr>
                 <td><b>${s.nome}</b></td>
                 <td>${s.lista==='—' ? '<span style="color:var(--muted)">não controlado</span>' : `<span class="tag ${listaTagClass(s.lista)}">Lista ${s.lista}</span>`}</td>
-                <td>${s.unidade}</td>
-                <td class="num mono">${bal}</td>
+                <td class="num mono">${bal} ${s.unidade}</td>
+                <td class="num mono">${fmtBRL(cm)}</td>
+                <td class="num mono"><b>${fmtBRL(bal*cm)}</b></td>
                 <td>${low ? '<span class="pill low">● abaixo do mínimo</span>' : '<span class="pill">● regular</span>'}</td>
               </tr>`;
             }).join('')}
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><div class="panel-title">Lotes &amp; Validade</div><div class="panel-title-sub">Todo lote recebido, por compra ou doação, com saldo e status de vencimento</div></div>
+      </div>
+      <div class="panel-body">
+        <table>
+          <thead><tr><th>Lote</th><th>Substância</th><th>Origem</th><th>Validade</th><th>Status</th><th>Recebido</th><th>Saldo do lote</th></tr></thead>
+          <tbody>
+            ${lotes.map(l=>{
+              const vs = validadeStatus(l.validade);
+              const bal = saldoLote(l.lote);
+              const statusTag = vs.key==='vencido' ? `<span class="pill low">● ${vs.label}</span>`
+                : vs.key==='critico' ? `<span class="pill warn">● ${vs.label}</span>`
+                : `<span class="pill">● ${vs.label}</span>`;
+              return `<tr>
+                <td><span class="folio">${l.lote}</span></td>
+                <td>${subById(l.subId).nome}</td>
+                <td>${l.origem==='compra' ? '<span class="tag tag-in">COMPRA</span>' : '<span class="tag" style="background:var(--accent)">DOAÇÃO</span>'}</td>
+                <td class="mono">${fmtDate(l.validade)}</td>
+                <td>${statusTag}</td>
+                <td class="num mono">${l.qtd}</td>
+                <td class="num mono"><b>${bal}</b></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <div class="foot-signoff">
+          <span>Lotes vencidos ou próximos do vencimento (≤ 90 dias) exigem separação e baixa formal do estoque</span>
+          <span>${lotes.filter(l=>validadeStatus(l.validade).key!=='ok').length} lote(s) exigindo atenção</span>
+        </div>
       </div>
     </div>
   `;
@@ -542,6 +723,206 @@ function viewPrescricoes(){
             `).join('')}
           </tbody>
         </table>
+      </div>
+    </div>
+  `;
+}
+
+function viewNotasFiscais(){
+  const totalGeral = invoices.reduce((a,nf)=> a + nf.itens.reduce((x,it)=>x+it.qtd*it.custoUnit,0), 0);
+  return `
+    <div class="note-box"><b>${invoices.length} nota(s) fiscal(is) lançada(s)</b> · valor total em compras: <b>${fmtBRL(totalGeral)}</b>. Cada item de NF gera automaticamente um lote rastreável em estoque, com validade e custo unitário próprios.</div>
+    ${invoices.map(nf=>{
+      const total = nf.itens.reduce((a,it)=>a+it.qtd*it.custoUnit,0);
+      return `
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="panel-title">NF ${nf.numero} — ${nf.fornecedor}</div><div class="panel-title-sub">${fmtDate(nf.data)} · ${nf.itens.length} item(ns)</div></div>
+          <div style="text-align:right"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Valor total</div><div class="mono" style="font-size:17px;font-weight:700;color:var(--primary-dark)">${fmtBRL(total)}</div></div>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Substância</th><th>Lote</th><th>Validade</th><th>Qtd.</th><th>Custo/un.</th><th>Subtotal</th></tr></thead>
+            <tbody>
+              ${nf.itens.map(it=>`
+                <tr>
+                  <td><b>${subById(it.subId).nome}</b></td>
+                  <td><span class="folio">${it.lote}</span></td>
+                  <td class="mono">${fmtDate(it.validade)}</td>
+                  <td class="num mono">${it.qtd}</td>
+                  <td class="num mono">${fmtBRL(it.custoUnit)}</td>
+                  <td class="num mono"><b>${fmtBRL(it.qtd*it.custoUnit)}</b></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;}).join('')}
+    <div style="text-align:right;margin-top:4px"><button class="btn sm">+ Lançar nova Nota Fiscal</button></div>
+  `;
+}
+
+function viewDoacoes(){
+  const totalEstimado = donations.reduce((a,d)=> a + d.itens.reduce((x,it)=>x+it.qtd*it.valorEstimado,0), 0);
+  return `
+    <div class="note-box"><b>Custo real ao hospital: R$ 0,00.</b> Itens doados entram em estoque e na escrituração normalmente, mas não compõem o custo de medicamentos — apenas o valor de mercado estimado, para demonstrar a economia gerada pelas parcerias.</div>
+    <div class="grid cards" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-bottom:22px">
+      <div class="card"><div class="card-label">Doações recebidas</div><div class="card-value">${donations.length}</div><div class="card-note">registro(s) no período</div></div>
+      <div class="card"><div class="card-label">Valor de mercado estimado</div><div class="card-value" style="color:var(--accent)">${fmtBRL(totalEstimado)}</div><div class="card-note">economia gerada ao hospital</div></div>
+    </div>
+    ${donations.map(d=>{
+      const total = d.itens.reduce((a,it)=>a+it.qtd*it.valorEstimado,0);
+      return `
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="panel-title">${d.doador}</div><div class="panel-title-sub">${fmtDate(d.data)} · ${d.itens.length} item(ns)</div></div>
+          <div style="text-align:right"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Valor estimado</div><div class="mono" style="font-size:17px;font-weight:700;color:var(--accent)">${fmtBRL(total)}</div></div>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th>Substância</th><th>Lote</th><th>Validade</th><th>Qtd.</th><th>Valor de mercado/un.</th><th>Subtotal</th></tr></thead>
+            <tbody>
+              ${d.itens.map(it=>`
+                <tr>
+                  <td><b>${subById(it.subId).nome}</b></td>
+                  <td><span class="folio">${it.lote}</span></td>
+                  <td class="mono">${fmtDate(it.validade)}</td>
+                  <td class="num mono">${it.qtd}</td>
+                  <td class="num mono">${fmtBRL(it.valorEstimado)}</td>
+                  <td class="num mono"><b>${fmtBRL(it.qtd*it.valorEstimado)}</b></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;}).join('')}
+    <div style="text-align:right;margin-top:4px"><button class="btn sm">+ Lançar nova Doação</button></div>
+  `;
+}
+
+function viewPrevisaoCompras(){
+  const rows = substances.map(s=>{
+    const bal = saldo(s.id);
+    const consumo = consumoMedioDiario(s.id);
+    const diasRestantes = consumo > 0 ? bal / consumo : null;
+    const sugestao = consumo > 0 ? Math.max(0, Math.ceil(consumo*60 - bal)) : 0;
+    let status;
+    if(consumo === 0) status = { key:'ok', label:'Sem consumo recente' };
+    else if(diasRestantes < 7) status = { key:'low', label:'Crítico' };
+    else if(diasRestantes < 20) status = { key:'warn', label:'Atenção' };
+    else status = { key:'ok', label:'Regular' };
+    return { s, bal, consumo, diasRestantes, sugestao, status };
+  }).sort((a,b)=> (a.diasRestantes ?? 999) - (b.diasRestantes ?? 999));
+
+  return `
+    <div class="note-box"><b>Como é calculado.</b> Consumo médio diário = total dispensado ÷ dias do período observado (${periodoDispensacaoDias()} dias, nesta amostra). Sugestão de compra cobre 60 dias de consumo projetado. Em uso real, a base de cálculo cresce a cada dia de operação e fica mais precisa.</div>
+    <div class="panel">
+      <div class="panel-head">
+        <div><div class="panel-title">Projeção de reposição</div><div class="panel-title-sub">Ordenado pelas substâncias mais urgentes</div></div>
+      </div>
+      <div class="panel-body">
+        <table>
+          <thead><tr><th>Substância</th><th>Saldo atual</th><th>Consumo médio/dia</th><th>Dias restantes</th><th>Sugestão de compra</th><th>Status</th></tr></thead>
+          <tbody>
+            ${rows.map(r=>`
+              <tr>
+                <td><b>${r.s.nome}</b></td>
+                <td class="num mono">${r.bal} ${r.s.unidade}</td>
+                <td class="num mono">${r.consumo.toFixed(2)}</td>
+                <td class="num mono">${r.diasRestantes===null ? '—' : Math.floor(r.diasRestantes)+'d'}</td>
+                <td class="num mono">${r.sugestao>0 ? r.sugestao+' '+r.s.unidade : '—'}</td>
+                <td>${r.status.key==='low' ? `<span class="pill low">● ${r.status.label}</span>` : r.status.key==='warn' ? `<span class="pill warn">● ${r.status.label}</span>` : `<span class="pill">● ${r.status.label}</span>`}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function viewFinanceiro(){
+  const custoTotalMedicamentos = movements.filter(m=>m.tipo==='saida').reduce((a,m)=>a+m.qtd*(m.custoUnit||0),0);
+  const custoTotalInternacoes = patients.reduce((a,p)=>a+custoTotalPaciente(p),0);
+  const somaDiasPaciente = patients.reduce((a,p)=>a+diasInternado(p),0);
+  const custoMedioPacienteDia = somaDiasPaciente ? custoTotalInternacoes/somaDiasPaciente : 0;
+  const economiaDoacoes = donations.reduce((a,d)=>a+d.itens.reduce((x,it)=>x+it.qtd*it.valorEstimado,0),0);
+
+  // custo diário com medicamentos (por data de dispensação)
+  const porDia = {};
+  dispensations.forEach(d=>{
+    const lote = allLotes().find(l=>l.lote===d.lote);
+    const custo = d.qtd * (lote ? lote.custoUnit : 0);
+    porDia[d.data] = (porDia[d.data]||0) + custo;
+  });
+  const diasOrdenados = Object.keys(porDia).sort();
+  const dataDiaria = diasOrdenados.map(d=>({ label: fmtDate(d).slice(0,5), value: +porDia[d].toFixed(2) }));
+
+  // custo por substância (top, medicamentos dispensados)
+  const porSub = {};
+  movements.filter(m=>m.tipo==='saida').forEach(m=>{
+    porSub[m.subId] = (porSub[m.subId]||0) + m.qtd*(m.custoUnit||0);
+  });
+  const dataSub = Object.entries(porSub)
+    .map(([subId,value])=>({ label: subById(subId).nome.split(' ').slice(0,2).join(' '), value: +value.toFixed(2) }))
+    .sort((a,b)=>b.value-a.value);
+
+  return `
+    <div class="grid cards">
+      <div class="card"><div class="card-label">Custo total — medicamentos</div><div class="card-value">${fmtBRL(custoTotalMedicamentos)}</div><div class="card-note">dispensações registradas no período</div></div>
+      <div class="card"><div class="card-label">Custo médio / paciente-dia</div><div class="card-value">${fmtBRL(custoMedioPacienteDia)}</div><div class="card-note">diária + medicamentos, por dia internado</div></div>
+      <div class="card"><div class="card-label">Custo total de internação</div><div class="card-value">${fmtBRL(custoTotalInternacoes)}</div><div class="card-note">todos os pacientes ativos, até hoje</div></div>
+      <div class="card"><div class="card-label">Economia com doações</div><div class="card-value" style="color:var(--accent)">${fmtBRL(economiaDoacoes)}</div><div class="card-note">valor de mercado não desembolsado</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><div class="panel-title">Custo diário com medicamentos</div><div class="panel-title-sub">Soma das dispensações por dia, a custo de aquisição</div></div>
+      </div>
+      <div class="panel-body">
+        ${svgBarChart(dataDiaria, { valueFmt: v => 'R$'+v.toFixed(0) })}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><div class="panel-title">Custo por substância</div><div class="panel-title-sub">Onde o orçamento de medicamentos está concentrado</div></div>
+      </div>
+      <div class="panel-body">
+        ${svgHBarChart(dataSub, { valueFmt: fmtBRL, color: CHART_COLORS.accent })}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div><div class="panel-title">Custo por paciente</div><div class="panel-title-sub">Diária de internação (${fmtBRL(DIARIA_INTERNACAO)}/dia) + medicamentos efetivamente dispensados</div></div>
+      </div>
+      <div class="panel-body">
+        <table>
+          <thead><tr><th>Paciente</th><th>Dias internado</th><th>Custo diárias</th><th>Custo medicamentos</th><th>Custo total</th><th>Custo médio/dia</th></tr></thead>
+          <tbody>
+            ${patients.map(p=>{
+              const dias = diasInternado(p);
+              const cd = custoDiariasPaciente(p);
+              const cm = custoMedicamentosPaciente(p.id);
+              const total = cd+cm;
+              return `<tr>
+                <td><b>${p.nome}</b> <span style="color:var(--muted)">· ${p.leito}</span></td>
+                <td class="num mono">${dias}</td>
+                <td class="num mono">${fmtBRL(cd)}</td>
+                <td class="num mono">${fmtBRL(cm)}</td>
+                <td class="num mono"><b>${fmtBRL(total)}</b></td>
+                <td class="num mono">${fmtBRL(total/dias)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <div class="foot-signoff">
+          <span>Valores ilustrativos — diária de internação é parâmetro configurável pelo hospital</span>
+          <span>Farmacêutico RT: Paulo Edson Fernandes — CRF-GO 9303</span>
+        </div>
       </div>
     </div>
   `;
@@ -597,7 +978,7 @@ function viewEscrituracao(){
           <tbody>
             ${(()=>{
               const running = {};
-              substances.forEach(s=> running[s.id] = s.estoqueInicial);
+              substances.forEach(s=> running[s.id] = 0);
               return movements.map(m=>{
                 running[m.subId] += m.tipo==='entrada'? m.qtd : -m.qtd;
                 return `<tr>
@@ -639,10 +1020,10 @@ function viewBalanco(){
               return `<tr>
                 <td><b>${s.nome}</b></td>
                 <td><span class="tag ${listaTagClass(s.lista)}">Lista ${s.lista}</span></td>
-                <td class="num mono">${s.estoqueInicial}</td>
+                <td class="num mono">0</td>
                 <td class="num mono">+${entradas}</td>
                 <td class="num mono">−${saidas}</td>
-                <td class="num mono"><b>${s.estoqueInicial + entradas - saidas}</b></td>
+                <td class="num mono"><b>${entradas - saidas}</b></td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -708,6 +1089,10 @@ function mount(){
     <div class="view" id="view-dose">${viewDose()}</div>
     <div class="view" id="view-estoque">${viewEstoque()}</div>
     <div class="view" id="view-prescricoes">${viewPrescricoes()}</div>
+    <div class="view" id="view-notasfiscais">${viewNotasFiscais()}</div>
+    <div class="view" id="view-doacoes">${viewDoacoes()}</div>
+    <div class="view" id="view-previsao">${viewPrevisaoCompras()}</div>
+    <div class="view" id="view-financeiro">${viewFinanceiro()}</div>
     <div class="view" id="view-escrituracao">${viewEscrituracao()}</div>
     <div class="view" id="view-balanco">${viewBalanco()}</div>
     <div class="view" id="view-roadmap">${viewRoadmap()}</div>
